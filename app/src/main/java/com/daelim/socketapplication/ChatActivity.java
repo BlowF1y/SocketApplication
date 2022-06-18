@@ -64,7 +64,7 @@ public class ChatActivity extends AppCompatActivity{
                        public View getView(int i, View view, ViewGroup viewGroup) {
                            view = getLayoutInflater().inflate(R.layout.chat_layout_left,viewGroup,false);
 
-                           switch ()
+
                            TextView tx_view_1 = view.findViewById(R.id.tx_1);
 
                            TextView tx_view_2 = view.findViewById(R.id.tx_2);
