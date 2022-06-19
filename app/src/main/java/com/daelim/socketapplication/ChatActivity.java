@@ -3,102 +3,120 @@ package com.daelim.socketapplication;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.daelim.socketapplication.data.MySocket;
+import com.daelim.socketapplication.data.listAdapter;
 import com.daelim.socketapplication.data.socketVO;
 
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.handshake.ServerHandshake;
+
 import java.net.URI;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 
 public class ChatActivity extends AppCompatActivity{
     private Button chat_btn;
     private EditText chat_Text;
-    private MySocket sc;
     private ListView chat_list;
     private ArrayList<socketVO> list;
-
+    private listAdapter listAdapter;
+    public WebSocketClient sc;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
         try {
-            chat_Text = findViewById(R.id.editText1);
-            chat_btn = findViewById(R.id.btn_send1);
-            chat_list = findViewById(R.id.chat_listview);
+
+
             URI uri = new URI("ws://61.83.168.88:4877");
-            sc = new MySocket(uri);
-            sc.connect();
-            socketVO vo = new socketVO();
-
-            sc.onMessage();
             list = new ArrayList<socketVO>();
+            listAdapter = new listAdapter(this,list);
+
+            chat_Text = (EditText) findViewById(R.id.btn_text);
+            chat_btn = (Button) findViewById(R.id.btn_send1);
+
+            chat_list = findViewById(R.id.chat_listview);
+            chat_list.setAdapter(listAdapter);
+
+            sc = new WebSocketClient(uri) {
+                @Override
+                public void onOpen(ServerHandshake serverHandshake) {
+                    Log.e("!!!", "onOpen");
+                }
+
+                @Override
+                public void onMessage(String s) {
+                    Log.e("message",s);
+                    String[] str = s.split("|");
+                    if(str.length>1){
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                String type = str[0];
+                                String id = str[1];
+                                String msg = str[2];
+                                list.add(new socketVO(type, id, msg));
+                                String nowTime = new SimpleDateFormat("HH:mm:ss").format(new Date());
+                                switch (type){
+                                    case "Login":
+                                        listAdapter.Login(id);
+                                        break;
+                                    case "Chat":
+                                        listAdapter.chat(type, id, msg);
+                                        break;
+                                }
+                                listAdapter.notifyDataSetChanged();
+                            }
+                        });
+                    }
+
+                }
+
+                @Override
+                public void onClose(int i, String s, boolean b) {
+                    Log.e("close","close");
+                }
+
+                @Override
+                public void onError(Exception e) {
+                    e.printStackTrace();
+                }
 
 
-                   list.add(vo);
+            };
+            sc.connect();
+            sc.send("Login|"+"id");
 
-                   chat_list.setAdapter(new BaseAdapter() {
-                       @Override
-                       public int getCount() { //사용할 데이터의 크기
-                           return list.size();
-                       }
-
-                       @Override
-                       public Object getItem(int i) {
-                           return null;
-                       }
-
-                       @Override
-                       public long getItemId(int i) {
-                           return 0;
-                       }
-
-                       @Override
-                       public View getView(int i, View view, ViewGroup viewGroup) {
-                           view = getLayoutInflater().inflate(R.layout.chat_layout_left,viewGroup,false);
-
-
-                           TextView tx_view_1 = view.findViewById(R.id.tx_1);
-
-                           TextView tx_view_2 = view.findViewById(R.id.tx_2);
-                           tx_view_1.setText(list.get(i).getId());
-                           tx_view_2.setText(list.get(i).getMessage());
-
-                            //runnabluitread
-                           return view;
-                       }
-
-
-            });
             chat_btn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    sc.send(chat_Text.getText().toString());
+                    String msg = chat_Text.getText().toString();
+                    String str = "Chat|" + "id" + "|" + msg;
+                    sc.send(str);
                     chat_Text.setText("");
                 }
             });
-        }catch (Exception e){
-            e.printStackTrace();
+
+        } catch (Exception e2) {
+            e2.printStackTrace();
         }
-    }
-    @Override
-    protected void onStop() {
-        super.onStop();
-        try {
-            URI uri = new URI("ws://61.83.168.88:4877");
-            sc = new MySocket(uri);
-            sc.close();
-        }catch (Exception ee){
-            ee.printStackTrace();
-        }
+
+
     }
 
+    public void serverDisconnect() {
+        sc.close();
+    }
 
 }
